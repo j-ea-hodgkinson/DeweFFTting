@@ -73,7 +73,6 @@ F2 = fftpack.fftshift( F1 )
 psd2D = np.abs( F2 )**2
 wn_psd1D = radial_profile2(psd2D)
 
-
 # Loop through all PNGs
 for j in files_png:
     image_name = j

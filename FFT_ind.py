@@ -106,6 +106,6 @@ py.ylabel('Power Spectrum')
 
 peaks, properties = signal.find_peaks(np.log(psd1D), prominence=1)
 py.plot(horz[peaks], psd1D[peaks], 'X', label='Unsmoothed peaks')
-print(horz[peaks])
+print(horz[peaks])  # Print the peak spatial frequency to the console
 
 py.show()

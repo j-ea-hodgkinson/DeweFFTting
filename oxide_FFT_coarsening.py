@@ -1,3 +1,6 @@
+# Derivative of oxide_FFT.py
+# Used to study two particular images of the same location on a surface 5 months apart
+
 import os
 import numpy as np
 import pylab as py
@@ -14,7 +17,6 @@ from scipy.ndimage.filters import uniform_filter1d
 from skimage.filters import threshold_otsu
 import imageio
 
-# OXIDE FFT ADAPTED TO MAKE FIGURES AND COMPARE TWO IMAGES
 
 file_name_0m = 'Si111_0_75_HF3_0004.png'
 file_name_5m = 'SiPatternedAu0_750010.png'
@@ -26,6 +28,9 @@ segmented = 0  # 0 to FFT the grayscale image, 1 to binarise the image first
 # oy = rectangle_y_origin
 # rx = rectangle_x_length
 # ry = rectangle_y_length
+
+# Locations of the rectangles that the code uses as crops upon the two images
+# o is the origin, r is the length
 
 # 1st rectangle
 ox1 = 80
@@ -66,7 +71,7 @@ def normalise(array):  # Set an image numpy array's values to be between 0 and 1
     norm_array = (array - np.min(array)) \
                  / (np.max(array) - np.min(array))
     return norm_array
-def radial_profile2(data, center=None, binning=1):
+def radial_profile2(data, center=None, binning=1):  # Calculates the radial average
     y, x = np.indices((data.shape))  # first determine radii of all pixels
 
     if not center:
@@ -82,19 +87,19 @@ def radial_profile2(data, center=None, binning=1):
     # plt.plot(radius[1:], ring_brightness)
     # plt.show()
     return ring_brightness
-def crop(image, x_origin, y_origin, x_length, y_length):
+def crop(image, x_origin, y_origin, x_length, y_length):  # Set all values outside the rectangle to 0
     x, y = image.shape
     zero_array = np.zeros([x, y])
     zero_array[x_origin:x_origin + x_length + 1, y_origin:y_origin + y_length + 1] = 1
     cropped_array = zero_array * image
     return cropped_array
-def mask(image, x_origin, y_origin, x_length, y_length):
+def mask(image, x_origin, y_origin, x_length, y_length):  # Set all values inside the rectangle to 0
     x, y = image.shape
     one_array = np.ones([x, y])
     one_array[x_origin:x_origin + x_length + 1, y_origin:y_origin + y_length + 1] = 0
     masked_array = one_array * image
     return masked_array
-def SpectralFFT(array):
+def SpectralFFT(array):  # Calculate the radially averaged 1D FFT spectrum
     # Take the fourier transform of the image.
     F1 = fftpack.fft2(array)
 
@@ -109,11 +114,11 @@ def SpectralFFT(array):
     spectra = radial_profile2(psd2D)
 
     return spectra
-def hann_SpectralFFT(array):
+def hann_SpectralFFT(array):  # Calculate the radially averaged 1D FFT spectrum but windows the array first
     wimage_gray = array * window('hann', array.shape)
     windowed_array_spectrum = SpectralFFT(wimage_gray)
     return windowed_array_spectrum
-def SpectralCropFFT(array, x_origin, y_origin, x_length, y_length):  # It does it all!
+def SpectralCropFFT(array, x_origin, y_origin, x_length, y_length):  # Finds spectrum but true crops first
     cropped_array = array[x_origin:x_origin + x_length,y_origin:y_origin + y_length]
     cropped_array = segment(cropped_array) if segmented == 1 else cropped_array
     PSD = SpectralFFT(cropped_array)
@@ -121,23 +126,18 @@ def SpectralCropFFT(array, x_origin, y_origin, x_length, y_length):  # It does i
                            len(PSD)) / (image_size * 1000)
     return PSD, Horz
 
-
+# Load the images, then converts them to normalised grayscale arrays
 image1_loc = 'Oxide Data/Test Set/' + file_name_0m
 image2_loc = 'Oxide Data/Test Set/' + file_name_5m
-
-
-
-
-
 image1 = plt.imread(image1_loc)
 image1_gray = normalise(rgb2gray(image1))
 image2 = plt.imread(image2_loc)
 image2_gray = normalise(rgb2gray(image2))
 
+# Assumes the image are the same size, they should be
 x, y = image1_gray.shape
 
-
-
+# Display the images with the rectangles labelled and overlayed on top
 py.figure(1)
 py.clf()
 py.subplot(1,2,1)
@@ -185,7 +185,7 @@ py.annotate('4',[oy4,ox4-5],color='w')
 
 py.show()
 
-
+# Calculate the FFT for inside every rectangle provided
 PSD_1_1, Horz_1_1 = SpectralCropFFT(image1_gray,ox1,oy1,rx1,ry1)
 PSD_1_2, Horz_1_2 = SpectralCropFFT(image1_gray,ox2,oy2,rx2,ry2)
 PSD_1_3, Horz_1_3 = SpectralCropFFT(image1_gray,ox3,oy3,rx3,ry3)
@@ -196,6 +196,7 @@ PSD_2_3, Horz_2_3 = SpectralCropFFT(image2_gray,ox3,oy3,rx3,ry3)
 PSD_2_4, Horz_2_4 = SpectralCropFFT(image2_gray,ox4,oy4,rx4,ry4)
 
 
+# Display figures comparing the FFTs for the regions in both images
 # top left 1, bottom right 4
 py.figure(2)
 py.clf()
@@ -239,83 +240,10 @@ py.xlabel('Wave vector /$nm^{-1}$')
 
 py.show()
 
-# py.figure(3)  # WINDOWING TEST
-# py.clf()
-# py.semilogy(horz[:255], psd1D[:255], label='FFT', lw=0.5)
-# py.semilogy(horz[:255], hann_SpectralFFT(cm_array), label='wFFT', lw=0.5)
-# py.ylim([1e6, 1e11])
-# py.yticks([])
-# py.ylabel('Intensity (a.u.)')
-# py.xlabel('Wave vector /$nm^{-1}$')
-# py.legend(loc="best", fontsize='xx-small')
-#
-# py.show()
-#
-# py.figure(4)  # true cropping vs zeroing
-# py.clf()
-# horz = np.linspace(0, np.sqrt((x / 2) ** 2 + (y / 2) ** 2),
-#                    bin) / (image_size * 1000)
-# py.semilogy(horz, psd1D, label='FFT', lw=0.5)
-#
-# cm2 = cm_array[rectangle_x_origin:rectangle_x_origin+rectangle_x_length,rectangle_y_origin:rectangle_y_origin+rectangle_y_length]
-# cpsd1D = SpectralFFT(cm2)
-# bin = 106 # 2k =106
-# horz2 = np.linspace(0, np.sqrt((rectangle_x_length / 2) ** 2 + (rectangle_y_length / 2) ** 2),
-#                    bin) / (image_size * 1000)
-# py.semilogy(horz2, cpsd1D, label='cFFT', lw=0.5)
-#
-# # py.ylim([1e6, 1e11])
-# py.yticks([])
-# py.ylabel('Intensity (a.u.)')
-# py.xlabel('Wave vector /$nm^{-1}$')
-# py.legend(loc="best", fontsize='xx-small')
-# py.show()
-#
-#
-# if comparison == 1:
-#     # calculate corners of second rectangle
-#     ox2 = rectangle2_x_origin
-#     oy2 = rectangle2_y_origin
-#     rx2 = rectangle2_x_length
-#     ry2 = rectangle2_y_length
-#
-#     c_x2 = [ox2, ox2 + rx2, ox2 + rx2, ox2, ox2]  # make a set of coordinates to draw the rectangle on the image
-#     c_y2 = [oy2, oy2, oy2 + ry2, oy2 + ry2, oy2]
-#
-#     cm_array2 = mask(image_gray, rectangle2_x_origin, rectangle2_y_origin, rectangle2_x_length, rectangle2_y_length)
-#
-#     if segment == 1:
-#         thresh2 = threshold_otsu(cm_array2[rectangle2_x_origin:rectangle2_x_origin + rectangle2_x_length + 1,
-#                                 rectangle2_y_origin:rectangle2_y_origin + rectangle2_y_length + 1])
-#         cm_array2 = cm_array2 > thresh2
-#
-#     py.figure(5)
-#     py.clf()
-#     py.imshow(cm_array2, cmap=py.cm.Greys)
-#     py.plot(c_y2, c_x2, 'tab:orange', ms=10)
-#     py.show()
-#
-#     psd1D2 = SpectralFFT(cm_array2)
-#     horz_comp = np.linspace(0, np.sqrt((x / 2) ** 2 + (y / 2) ** 2),
-#                    len(psd1D2)) / (image_size * 1000)
-#
-#     py.figure(6)  # 2 different regions (crop or mask) vs
-#     py.clf()
-#     py.semilogy(horz2, cpsd1D, label='FFT Cropped Region', lw=0.5)
-#     py.semilogy(horz_comp, psd1D2, label='FFT Masked Region', lw=0.5)
-#     py.yticks([])
-#     py.ylabel('Intensity (a.u.)')
-#     py.xlabel('Wave vector /$nm^{-1}$')
-#     py.legend(loc="best", fontsize='xx-small')
-#     py.show()
-
-
 # change to dots and squares
 # remove a chunk of the data points
 # crop the fall-off
 # boost the font size
-
-
 
 # 'ko' for black dots
 #'bs' is blue squares
@@ -323,15 +251,16 @@ py.show()
 save_movie = 0
 
 # Make an animated one that sweeps the images simultaneously with adjustable window sizes, 2x2 subplots
-image_number = 2
-window_size = 50
-animation_steps = 4
+image_number = 2  # 1 for 0 months, 2 for 5 months
+window_size = 50  # Size of the rectangle in pixels
+animation_steps = 4  # How fast the rectangle moves
 
 # Don't run this for too long!  50 win_size for 2 ani_steps made 2 GB of data!
 
 sweep_count = np.floor(x/window_size)
 image = image1_gray if image_number == 1 else image2_gray
 
+# Starting location of animation
 o_x = 0
 o_y = 0
 r_x = window_size
@@ -341,11 +270,12 @@ sweeps = 0
 
 print('Making spectra for movie...')
 
+# Animation starts
 while sweeps < sweep_count + 1:
     if save_movie == 0:
         break
 
-    while o_y+r_y<x: # RIGHT
+    while o_y+r_y<x: # Move rectangle RIGHT, saving a subplot of the FFT at every stop
         PSD, Horz = SpectralCropFFT(image,o_x,o_y,r_x,r_y)
         py.figure(3)
         py.clf()
@@ -396,8 +326,6 @@ while sweeps < sweep_count + 1:
 
         frame_number+=1
         o_x+=animation_steps
-
-
 
     while o_y+r_y>r_y:  #LEFT
         PSD, Horz = SpectralCropFFT(image,o_x,o_y,r_x,r_y)

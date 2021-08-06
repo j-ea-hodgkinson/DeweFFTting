@@ -1,4 +1,6 @@
-# Code that looks at different runs of Monte Carlo simulations of gold nanoparticle dewetting
+# Code that looks at different runs of Monte Carlo simulations of gold nanoparticle
+# dewetting.
+# Returns a gif of how the radially averaged 1D FFT spectra change with the simulation.
 
 import os
 import numpy as np
@@ -172,21 +174,6 @@ for index in steps_sort:
     py.savefig(fig_sav_loc, dpi=300)
     py.imsave(img_sav_loc, image_gray, dpi=300, cmap=py.cm.gray)
 
-    if isolated == 1:
-        py.figure(2)
-        py.clf()
-
-        py.semilogy(horz[:255], psd1D[:255], label='FFT', lw=line)
-        py.semilogy(horz[1:255], swpsd1D[1:255], label='FFT w/ Hanning windowing & smoothing', lw=line)
-        if speaks:
-            py.plot(horz[speaks + 1], swpsd1D[speaks], '+', label='Peak=' + str(np.round(horz[speaks+1], 2)), ms=marker)
-
-        py.xlabel('Wavevector/$\u03BCm^{-1}$')
-        py.ylabel('Power Spectrum')
-        py.legend(loc="best", fontsize='xx-small')
-
-        sav_loc_iso = r'res/iso/ISO_SPECTRA_' + image_name
-        py.savefig(sav_loc_iso, dpi=300)
 
     # Make and save subplots for the gif
     if save_movie == 1:

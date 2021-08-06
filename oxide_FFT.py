@@ -1,3 +1,8 @@
+# Code that takes in a singular image, and can return the radially averaged
+# 1D FFT spectrum using a rectangle as either a crop or mask.
+# Used mainly for oxide layer images, towards the bottom is the option of comparing
+# a cropped to a mask region with two different rectangles.
+
 import os
 import numpy as np
 import pylab as py
@@ -24,6 +29,7 @@ crop_mask = 0  # crop if 0, mask if 1
 segment = 0  # 0 to FFT the grayscale image, 1 to binarise the image first
 comparison = 1  # makes a final 2 figures of both two rectangles and their respective FFTs, assumes c_m = 0
 
+# Choose the location and size of the rectangle
 rectangle_x_length = 180
 rectangle_y_length = 300
 rectangle_x_origin = 250
@@ -44,7 +50,7 @@ def normalise(array):  # Set an image numpy array's values to be between 0 and 1
     norm_array = (array-np.min(array))\
                          / (np.max(array)-np.min(array))
     return norm_array
-def radial_profile2(data, center=None, binning=2):
+def radial_profile2(data, center=None, binning=2):  # Radial profile calculator
     y, x = np.indices((data.shape))  # first determine radii of all pixels
 
     if not center:
@@ -60,19 +66,19 @@ def radial_profile2(data, center=None, binning=2):
     # plt.plot(radius[1:], ring_brightness)
     # plt.show()
     return ring_brightness
-def crop(image,x_origin,y_origin,x_length,y_length):
+def crop(image,x_origin,y_origin,x_length,y_length):  # Set all values outside the rectangle to 0
     x, y = image.shape
     zero_array = np.zeros([x, y])
     zero_array[x_origin:x_origin+x_length+1, y_origin:y_origin+y_length+1] = 1
     cropped_array = zero_array * image
     return cropped_array
-def mask(image,x_origin,y_origin,x_length,y_length):
+def mask(image,x_origin,y_origin,x_length,y_length):  # Set all values inside the rectangle to 0
     x, y = image.shape
     one_array = np.ones([x, y])
     one_array[x_origin:x_origin+x_length+1, y_origin:y_origin+y_length+1] = 0
     masked_array = one_array * image
     return masked_array
-def SpectralFFT(array):
+def SpectralFFT(array):  # Calculate the radially averaged 1D FFT spectrum
     # Take the fourier transform of the image.
     F1 = fftpack.fft2(array)
 
@@ -87,19 +93,22 @@ def SpectralFFT(array):
     spectra = radial_profile2(psd2D)
 
     return spectra
-def hann_SpectralFFT(array):
+def hann_SpectralFFT(array):  # Calculate the radially averaged 1D FFT spectrum of a Hann windowed image
     wimage_gray = array * window('hann', array.shape)
     windowed_array_spectrum = SpectralFFT(wimage_gray)
     return windowed_array_spectrum
 
+# Load the image, then grayscale and normalise the pixel values
 image = plt.imread(image_loc)
 image_gray = normalise(rgb2gray(image))
 
+# Returns the image shape, used often
 x, y = image_gray.shape
 
 # if > data.shape
 #     print('No')
 
+# Make the parameters shorter to stop me typing so much
 ox = rectangle_x_origin
 oy = rectangle_y_origin
 rx = rectangle_x_length
@@ -108,35 +117,41 @@ ry = rectangle_y_length
 c_x = [ox,ox+rx,ox+rx,ox,ox] #make a set of coordinates to draw the rectangle on the image
 c_y = [oy,oy,oy+ry,oy+ry,oy]
 
+# Crops or masked image array based on selection
 if crop_mask == 0:
     cm_array = crop(image_gray,rectangle_x_origin,rectangle_y_origin,rectangle_x_length,rectangle_y_length)
 else:
     cm_array = mask(image_gray,rectangle_x_origin,rectangle_y_origin,rectangle_x_length,rectangle_y_length)
 
+# Segment the image using Otsu's threshold if asked to
 if segment == 1:
     thresh = threshold_otsu(cm_array[rectangle_x_origin:rectangle_x_origin+rectangle_x_length+1, rectangle_y_origin:rectangle_y_origin+rectangle_y_length+1])
     cm_array = cm_array > thresh
 
+# Display the cropped/masked region
 py.figure(1)
 py.clf()
 py.imshow(cm_array, cmap=py.cm.Greys)
 py.plot(c_y, c_x,'tab:orange', ms=10)
 py.show()
 
-
+# Solve!
 psd1D = SpectralFFT(cm_array)
 
-bin = 179  #2k=179
+# Set this to be the length of the resulting psd1D
+# bin = 179  #2k=179
 
+# Calculate the wavevector to plot on the x-axis, using the provided image size
 if crop_mask == 0:
     horz = np.linspace(0, np.sqrt((rectangle_x_length / 2) ** 2 + (rectangle_y_length / 2) ** 2),
-                   bin) / (image_size * 1000)
+                   len(psd1D)) / (image_size * 1000)
 else:
     horz = np.linspace(0, np.sqrt((x / 2) ** 2 + (y / 2) ** 2),
-                   bin) / (image_size * 1000)  # Use Pythagoras to work out the furthest radius on the image
+                   len(psd1D)) / (image_size * 1000)  # Use Pythagoras to work out the furthest radius on the image
                     # change this to size of rectangle for crop
 
-
+# Plot the semi-log of the spectrum, [:X] is used to crop out the cusp on the FFT created
+# by the degeneracy at the edges of the radius
 py.figure(2)
 py.clf()
 py.semilogy(horz[:255], psd1D[:255], label='FFT', lw=0.5)
@@ -166,12 +181,14 @@ py.legend(loc="best", fontsize='xx-small')
 
 py.show()
 
-py.figure(4)  # true cropping vs zeroing
+# Tests the effect of using cropping to the perimeter of the rectangle instead of zeroing
+py.figure(4)
 py.clf()
 horz = np.linspace(0, np.sqrt((x / 2) ** 2 + (y / 2) ** 2),
                    bin) / (image_size * 1000)
 py.semilogy(horz, psd1D, label='FFT', lw=0.5)
 
+#Crops using this line
 cm2 = cm_array[rectangle_x_origin:rectangle_x_origin+rectangle_x_length,rectangle_y_origin:rectangle_y_origin+rectangle_y_length]
 cpsd1D = SpectralFFT(cm2)
 bin = 106 # 2k =106
@@ -186,7 +203,7 @@ py.xlabel('Wave vector /$nm^{-1}$')
 py.legend(loc="best", fontsize='xx-small')
 py.show()
 
-
+# Comparing a crop to a mask of a different size
 if comparison == 1:
     # calculate corners of second rectangle
     ox2 = rectangle2_x_origin
@@ -216,8 +233,8 @@ if comparison == 1:
 
     py.figure(6)  # 2 different regions (crop or mask) vs
     py.clf()
-    region1=70
-    region2=70
+    region1=70 # modify by hand to crop off the degenerate cusp
+    region2=70 # ' '
     py.semilogy(horz2[:region1:2], cpsd1D[:region1:2], 'ko', label='FFT Cropped Region', ms=5)
     py.semilogy(horz_comp[:region2:2], psd1D2[:region2:2], 'bs', label='FFT Masked Region', ms=5)
     py.yticks([])

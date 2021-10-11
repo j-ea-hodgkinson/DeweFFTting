@@ -19,28 +19,32 @@ from scipy.ndimage.filters import uniform_filter1d
 from skimage.filters import threshold_otsu
 
 
-file_name = '2k_2.25_1x4_hs.png'  # Take a file name from the list
-# 2b_2.25_5x5_hs.png
-# 2i_2.25_3x3_hs.png
-# 2k_2.25_1x4_hs.png
+img_name = '1e_5_4x4_xt_2'  # Take a file name from the list
+file_name = img_name + '.png'
+# 1e_5_4x4_xt_2
+# 2b_2.25_5x5_hs
+# 2i_2.25_3x3_hs
+# 2k_2.25_1x4_hs
+# 'SiPatternedAu1_750007'
 
-image_size = 8  # provide the image size in microns
+image_size = 7.6  # provide the image size in microns 2k is 8, SiPat is 7.6, 1e 7.8
 crop_mask = 0  # crop if 0, mask if 1
 segment = 0  # 0 to FFT the grayscale image, 1 to binarise the image first
 comparison = 1  # makes a final 2 figures of both two rectangles and their respective FFTs, assumes c_m = 0
 
 # Choose the location and size of the rectangle
-rectangle_x_length = 180
-rectangle_y_length = 300
-rectangle_x_origin = 250
-rectangle_y_origin = 0
+rectangle_x_length = 270
+rectangle_y_length = 270
+rectangle_x_origin = 100
+rectangle_y_origin = 120
 #2k use 180, 300, 250, 0
 
 if comparison == 1:  # enter the coordinates of a second rectangle you'll use for masking
-    rectangle2_x_length = 220
-    rectangle2_y_length = 390
-    rectangle2_x_origin = 230
-    rectangle2_y_origin = 0
+    rectangle2_x_length = 350
+    rectangle2_y_length = 350
+    rectangle2_x_origin = 70
+    rectangle2_y_origin = 70
+    # 2k uses, 220, 390, 230, 0
 
 image_loc = 'Oxide Data/Test Set/' + file_name
 
@@ -184,16 +188,16 @@ py.show()
 # Tests the effect of using cropping to the perimeter of the rectangle instead of zeroing
 py.figure(4)
 py.clf()
-horz = np.linspace(0, np.sqrt((x / 2) ** 2 + (y / 2) ** 2),
-                   bin) / (image_size * 1000)
+bin = 106
+horz = np.linspace(0, np.sqrt((x / 2) ** 2 + (y / 2) ** 2), len(psd1D)) / (image_size * 1000)
 py.semilogy(horz, psd1D, label='FFT', lw=0.5)
 
 #Crops using this line
 cm2 = cm_array[rectangle_x_origin:rectangle_x_origin+rectangle_x_length,rectangle_y_origin:rectangle_y_origin+rectangle_y_length]
 cpsd1D = SpectralFFT(cm2)
 bin = 106 # 2k =106
-horz2 = np.linspace(0, np.sqrt((rectangle_x_length / 2) ** 2 + (rectangle_y_length / 2) ** 2),
-                   bin) / (image_size * 1000)
+ratio = (np.sqrt((rectangle_x_length / 2) ** 2 + (rectangle_y_length / 2) ** 2)) / np.sqrt((x / 2) ** 2 + (y / 2) ** 2)
+horz2 = np.linspace(0, np.sqrt((rectangle_x_length / 2) ** 2 + (rectangle_y_length / 2) ** 2),len(cpsd1D)) / (image_size * ratio * 1000)
 py.semilogy(horz2, cpsd1D, label='cFFT', lw=0.5)
 
 # py.ylim([1e6, 1e11])
@@ -227,20 +231,25 @@ if comparison == 1:
     py.plot(c_y2, c_x2, 'tab:orange', ms=10)
     py.show()
 
+    cm_array2 = normalise(cm_array2)
     psd1D2 = SpectralFFT(cm_array2)
     horz_comp = np.linspace(0, np.sqrt((x / 2) ** 2 + (y / 2) ** 2),
                    len(psd1D2)) / (image_size * 1000)
 
+
     py.figure(6)  # 2 different regions (crop or mask) vs
     py.clf()
-    region1=70 # modify by hand to crop off the degenerate cusp
+    py.rcParams['font.size'] = '20'
+    region1=69 # modify by hand to crop off the degenerate cusp
     region2=70 # ' '
-    py.semilogy(horz2[:region1:2], cpsd1D[:region1:2], 'ko', label='FFT Cropped Region', ms=5)
-    py.semilogy(horz_comp[:region2:2], psd1D2[:region2:2], 'bs', label='FFT Masked Region', ms=5)
+    py.semilogy(horz2[1:region1:2], cpsd1D[1:region1:2], 'ko', label='FFT Cropped Region', ms=5)
+    py.semilogy(horz_comp[2:region2:2], psd1D2[2:region2:2], 's' ,color='orange', label='FFT Masked Region', ms=5)
     py.yticks([])
-    py.ylabel('Intensity (a.u.)')
-    py.xlabel('Wave vector /$nm^{-1}$')
-    py.legend(loc="best", fontsize='xx-small')
+    py.ylabel('Intensity (a.u.)',fontsize=22)
+    py.xlabel('Wave vector ($nm^{-1}$)',fontsize=22)
+    # py.legend(loc="best", fontsize='xx-small')
+    fig_sav_loc = 'res/oxide/comparison/' + img_name + 'plot.svg'
+    py.savefig(fig_sav_loc, dpi=300)
     py.show()
 
 # Using 1x4 image:
@@ -254,3 +263,50 @@ if comparison == 1:
 
 # 'ko' for black dots
 # 'bs' is blue squares
+
+    # Save the 2D FFTs for paper
+
+    # cm_array
+    F1 = fftpack.fft2(cm_array)
+    F2 = fftpack.fftshift(F1)
+    cm_2d = np.abs(F2) ** 2
+    crop_sav_loc = 'res/oxide/comparison/' + img_name + '2dFFTcrop.png'
+    py.imsave(crop_sav_loc, np.log(cm_2d), dpi=300, cmap='rainbow')
+
+    # cm_array2
+    F1 = fftpack.fft2(cm_array2)
+    F2 = fftpack.fftshift(F1)
+    cm2_2d = np.abs(F2) ** 2
+    mask_sav_loc = 'res/oxide/comparison/' + img_name + '2dFFTmask.png'
+    py.imsave(mask_sav_loc, np.log(cm2_2d), dpi=300, cmap='rainbow')
+
+
+# Used for SiPatternedAu1 in particular, cause I wanted the whole outside area
+# image_loc = 'Oxide Data/Test Set/SiPatternedAu1_750007cut2.png'
+# image = plt.imread(image_loc)
+# image_gray = normalise(rgb2gray(image))
+# F1 = fftpack.fft2(image_gray)
+# F2 = fftpack.fftshift(F1)
+# cm2_2d = np.abs(F2) ** 2
+# mask_sav_loc = 'res/oxide/comparison/' + img_name + '2dFFTcrop.png'
+# py.imsave(mask_sav_loc, np.log(cm2_2d), dpi=300, cmap='rainbow')
+#
+# cpsd1D2 = SpectralFFT(image_gray)
+# ratio = 281/512
+# horz2 = np.linspace(0, np.sqrt((281 / 2) ** 2 + (281 / 2) ** 2),len(cpsd1D)) / (image_size * ratio * 1000)
+#
+# py.semilogy(horz2[:region1:2], cpsd1D[:region1:2], 'ko', label='FFT Cropped Region', ms=5)
+#
+# image_loc = 'Oxide Data/Test Set/SiPatternedAu1_750007cut.png'
+# image = plt.imread(image_loc)
+# image_gray = normalise(rgb2gray(image))
+# F1 = fftpack.fft2(image_gray)
+# F2 = fftpack.fftshift(F1)
+# cm2_2d = np.abs(F2) ** 2
+# mask_sav_loc = 'res/oxide/comparison/' + img_name + '2dFFTmask.png'
+# py.imsave(mask_sav_loc, np.log(cm2_2d), dpi=300, cmap='rainbow')
+#
+# psd1D2 = SpectralFFT(image_gray)
+# py.semilogy(horz_comp[:region2:2], psd1D2[:region2:2], 's' ,color='orange', label='FFT Masked Region', ms=5)
+# py.savefig(fig_sav_loc, dpi=300)
+# py.show()

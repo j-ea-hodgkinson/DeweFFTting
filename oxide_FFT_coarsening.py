@@ -20,6 +20,7 @@ import imageio
 
 file_name_0m = 'Si111_0_75_HF3_0004.png'
 file_name_5m = 'SiPatternedAu0_750010.png'
+sav_loc = 'res/oxide/AgedSi_'
 
 image_size = 6  # provide the image size in microns
 segmented = 0  # 0 to FFT the grayscale image, 1 to binarise the image first
@@ -183,6 +184,8 @@ cx4,cy4 = corners(ox4,oy4,rx4,ry4)
 py.plot(cy4, cx4,'w', ms=10)
 py.annotate('4',[oy4,ox4-5],color='w')
 
+fig_sav_loc = sav_loc + 'rectangles.svg'
+py.savefig(fig_sav_loc, dpi=300)
 py.show()
 
 # Calculate the FFT for inside every rectangle provided
@@ -195,41 +198,47 @@ PSD_2_2, Horz_2_2 = SpectralCropFFT(image2_gray,ox2,oy2,rx2,ry2)
 PSD_2_3, Horz_2_3 = SpectralCropFFT(image2_gray,ox3,oy3,rx3,ry3)
 PSD_2_4, Horz_2_4 = SpectralCropFFT(image2_gray,ox4,oy4,rx4,ry4)
 
-
+marker = 2
+sampling = 2
 # Display figures comparing the FFTs for the regions in both images
 # top left 1, bottom right 4
 py.figure(2)
 py.clf()
 py.subplot(2,2,1)
-py.semilogy(Horz_1_1, PSD_1_1, label='FFT_1_1', lw=0.5)
-py.semilogy(Horz_2_1, PSD_2_1, label='FFT_2_1', lw=0.5)
+ratio1 = (np.sqrt((rx1 / 2) ** 2 + (ry1 / 2) ** 2)) / np.sqrt((x / 2) ** 2 + (y / 2) ** 2) # configures the size wrt the image size in microns
+region1 = 90
+py.semilogy(Horz_1_1[:region1:sampling]*ratio1, PSD_1_1[:region1:sampling], 'k^', label='FFT_1_1', ms=marker)
+py.semilogy(Horz_2_1[:region1:sampling]*ratio1, PSD_2_1[:region1:sampling], 'o',  color='orange', label='FFT_2_1', ms=marker)
 py.yticks([])
 py.ylabel('Intensity (a.u.)')
-py.xlabel('Wave vector /$nm^{-1}$')
+# py.xlabel('Wave vector ($nm^{-1}$)')
 
 py.subplot(2,2,2)
-
-py.semilogy(Horz_1_2, PSD_1_2, label='FFT_1_2', lw=0.5)
-py.semilogy(Horz_2_2, PSD_2_2, label='FFT_2_2', lw=0.5)
+ratio2 = (np.sqrt((rx2 / 2) ** 2 + (ry2 / 2) ** 2)) / np.sqrt((x / 2) ** 2 + (y / 2) ** 2)
+region2 = 85
+py.semilogy(Horz_1_2[:region2:sampling]*ratio2, PSD_1_2[:region2:sampling], 'k^', label='FFT_1_2', ms=marker)
+py.semilogy(Horz_2_2[:region2:sampling]*ratio2, PSD_2_2[:region2:sampling], 'o',  color='orange', label='FFT_2_2', ms=marker)
 py.yticks([])
-py.ylabel('Intensity (a.u.)')
-py.xlabel('Wave vector /$nm^{-1}$')
+# py.ylabel('Intensity (a.u.)')
+# py.xlabel('Wave vector ($nm^{-1}$)')
 
 py.subplot(2,2,3)
-
-py.semilogy(Horz_1_3, PSD_1_3, label='FFT_1_3', lw=0.5)
-py.semilogy(Horz_2_3, PSD_2_3, label='FFT_2_3', lw=0.5)
+ratio3 = (np.sqrt((rx3 / 2) ** 2 + (ry3 / 2) ** 2)) / np.sqrt((x / 2) ** 2 + (y / 2) ** 2)
+region3 = 35
+py.semilogy(Horz_1_3[1:region3:sampling]*ratio3, PSD_1_3[1:region3:sampling], 'k^', label='FFT_1_3', ms=marker)
+py.semilogy(Horz_2_3[1:region3:sampling]*ratio3, PSD_2_3[1:region3:sampling], 'o',  color='orange', label='FFT_2_3', ms=marker)
 py.yticks([])
 py.ylabel('Intensity (a.u.)')
-py.xlabel('Wave vector /$nm^{-1}$')
+py.xlabel('Wave vector ($nm^{-1}$)')
 
 py.subplot(2,2,4)
-
-py.semilogy(Horz_1_4, PSD_1_4, label='FFT_1_4', lw=0.5)
-py.semilogy(Horz_2_4, PSD_2_4, label='FFT_2_4', lw=0.5)
+ratio4 = (np.sqrt((rx4 / 2) ** 2 + (ry4 / 2) ** 2)) / np.sqrt((x / 2) ** 2 + (y / 2) ** 2)
+region4 = 65
+py.semilogy(Horz_1_4[:region4:sampling]*ratio4, PSD_1_4[:region4:sampling], 'k^', label='FFT_1_4', ms=marker)
+py.semilogy(Horz_2_4[:region4:sampling]*ratio4, PSD_2_4[:region4:sampling], 'o',  color='orange', label='FFT_2_4', ms=marker)
 py.yticks([])
-py.ylabel('Intensity (a.u.)')
-py.xlabel('Wave vector /$nm^{-1}$')
+# py.ylabel('Intensity (a.u.)')
+py.xlabel('Wave vector ($nm^{-1}$)')
 
 # Inset 2D FFT in figure?
 # Dots over lines?
@@ -237,7 +246,8 @@ py.xlabel('Wave vector /$nm^{-1}$')
 # See how much cropping actually affects the FFT
 # See how much segmentation actually affects the FFT
 
-
+fig_sav_loc = sav_loc + 'results.svg'
+py.savefig(fig_sav_loc, dpi=300)
 py.show()
 
 # change to dots and squares

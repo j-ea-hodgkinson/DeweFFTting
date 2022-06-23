@@ -15,11 +15,11 @@ from scipy import signal
 from scipy.ndimage.filters import uniform_filter1d
 
 # Find all PNGs in the target directory
-dir = 'Data'  # / 'Test Data'
+dir = 'Data/Test Data'  # / 'Test Data'
 files = os.listdir(dir)
 files_png = [i for i in files if i.endswith('.png')]
 
-test_windows = 0  # Windows the images using different methods from Hann beforehand if set to 1
+test_windows = 1  # Windows the images using different methods from Hann beforehand if set to 1
 isolated = 0  # Saves graphs of a select few PNGs
 
 line = 0.5  # Line thickness for graphs
@@ -140,6 +140,12 @@ for j in files_png:
         bmhwpsd2D = np.abs(bmhwF2) ** 2
         bmhwpsd1D = radial_profile2(bmhwpsd2D)
 
+        ftwimage_gray = image_gray * window('flattop', image_gray.shape)  # hamming, blackman, blackmanharris
+        ftwF1 = fftpack.fft2(ftwimage_gray)
+        ftwF2 = fftpack.fftshift(ftwF1)
+        ftwpsd2D = np.abs(ftwF2) ** 2
+        ftwpsd1D = radial_profile2(ftwpsd2D)
+
 
     if not speaks:  # If no peak is found, return N/A for all parameters and uptick N/A count
         fft_peak = 'NaN'
@@ -160,21 +166,21 @@ for j in files_png:
         fft_height = np.log(swpsd1D)[fft_peak]
 
     # Show graphs of the test set
-    if graph_count in {0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200, 1300, 1400, 1500, 1600} or run_no == '12254':
+    if graph_count in {0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200, 1300, 1400, 1500, 1600} or run_no == '37108':
         # if run_no in {12254}:
         progress = str(graph_count) + ' of 1630 done.'
         print(progress)
 
         # Calculate the x-axis in per-micron
         x, y = image_gray.shape
-        horz = np.linspace(0, np.sqrt((x / 2) ** 2 + (y / 2) ** 2), 362) / 20  # Use Pythagoras to work out the furthest radius on the image
-        # 20 is used as the image is assumed to be 20x20 microns
+        horz = np.linspace(0, np.sqrt((x / 2) ** 2 + (y / 2) ** 2), 362) / 1024  # Use Pythagoras to work out the furthest radius on the image
+        # 20 is used as the image is assumed to be 20x20 microns, or 1024 for case of pixels
 
         # Display a semi-log plot of the 1D spectrum
         py.figure(1)
         py.clf()
         py.semilogy(horz[:255], psd1D[:255], label='FFT', lw=line)
-        py.ylim([1e6, 1e11])
+        py.ylim([1e5, 1e10])
 
         # You will need to change the ylim and the limiting index on the semilog plot dependent on your own data
         # 255 works for 1024x1024 images, as beyond that you're calculating power for radii off the image, resulting in a cusp
@@ -186,7 +192,7 @@ for j in files_png:
         # Display a semi-log plot of the 1D spectrum with windowing, as well as the peak location
         py.semilogy(horz[:255], wpsd1D[:255], label='FFT w/ Hanning windowing', lw=line)
         peaks, properties = signal.find_peaks(np.log(wpsd1D), prominence=1)
-        py.plot(horz[peaks], wpsd1D[peaks], 'X', label='Unsmoothed peaks', ms=marker)
+        # py.plot(horz[peaks], wpsd1D[peaks], 'X', label='Unsmoothed peaks', ms=marker) # Uncomment later
         # py.semilogy(horz, psd1D-wn_psd1D, label='FFT w/ white noise correction', lw=line)
         # py.semilogy(horz, wn_psd1D, label='White noise FFT', lw=line)
 
@@ -195,37 +201,44 @@ for j in files_png:
             py.semilogy(horz[:255], hammwpsd1D[:255], label='FFT w/ Hamming windowing', lw=line)
             py.semilogy(horz[:255], bmwpsd1D[:255], label='FFT w/ Blackman windowing', lw=line)
             py.semilogy(horz[:255], bmhwpsd1D[:255], label='FFT w/ Blackman-Harris windowing', lw=line)
+            py.semilogy(horz[:255], ftwpsd1D[:255], label='FFT w/ Flat-top windowing', lw=line)
 
         # Combinations of other methods
         # swpsd1D = uniform_filter1d(wpsd1D, 15) # smooth the spectra with a moving average function
-        py.semilogy(horz[1:255], swpsd1D[1:255], '--', label='FFT w/ Hanning windowing & smoothing', lw=line)
+        # py.semilogy(horz[1:255], swpsd1D[1:255], '--', label='FFT w/ Hanning windowing & smoothing', lw=line) # Uncomment later
         # speaks, properties = signal.find_peaks(np.log(swpsd1D), prominence=1)
-        py.plot(horz[speaks+1], swpsd1D[speaks], 'X', label='Smoothed peaks', ms=marker) # 1 added to horz index to account for smoothing removing the first value
+        # py.plot(horz[speaks+1], swpsd1D[speaks], 'X', label='Smoothed peaks', ms=marker) # Uncomment later # 1 added to horz index to account for smoothing removing the first value
 
 
-        py.xlabel('Wavevector /$\u03BCm^{-1}$')
+        # py.xlabel('Wave vector /$\u03BCm^{-1}$')
+        py.xlabel('Wave vector /pixels$^{-1}$')
         py.ylabel('Power Spectrum')
         py.legend(loc="best", fontsize='xx-small')
 
         # Save the resulting image
-        sav_loc = r'res/SPECTRA_' + run_no + '.png'
+        sav_loc = r'res/WIN_SPECTRA_' + run_no + '.png'
+        py.savefig(sav_loc, dpi=300)
+        sav_loc = r'res/WIN_SPECTRA_' + run_no + '.svg'
         py.savefig(sav_loc, dpi=300)
 
         if isolated == 1:
             py.figure(2)
             py.clf()
-            py.ylim([1e6, 1e11])
+            py.ylim([1900000, 1e9])
 
-            py.semilogy(horz[:255], psd1D[:255], label='FFT', lw=line)
-            py.semilogy(horz[1:255], swpsd1D[1:255], label='FFT w/ Hanning windowing & smoothing', lw=line)
+            py.semilogy(horz[:255], wpsd1D[:255], label='FFT w/ Hanning windowing', lw=0.75)
+            py.semilogy(horz[1:255], swpsd1D[1:255], 'k--', label='FFT w/ Hanning windowing & smoothing', lw=line)
             if speaks:
-                py.plot(horz[speaks + 1], swpsd1D[speaks], '+', label='Peak=' + str(np.round(horz[speaks+1], 2)), ms=marker)
+                py.plot(horz[speaks + 1], swpsd1D[speaks], 'kx', label='Peak = ' + str(float(np.round(horz[speaks+1], 2))) + ' /pixel$^{-1}$', ms=10)
 
-            py.xlabel('Wavevector/$\u03BCm^{-1}$')
+            # py.xlabel('Wave vector /$\u03BCm^{-1}$')
+            py.xlabel('Wave vector /pixels$^{-1}$')
             py.ylabel('Power Spectrum')
             py.legend(loc="best", fontsize='xx-small')
 
-            sav_loc_iso = r'res/iso/ISO_SPECTRA_' + image_name
+            sav_loc_iso = r'res/iso/ISO_SPECTRA_' + run_no
+            py.savefig(sav_loc_iso, dpi=300)
+            sav_loc_iso = r'res/iso/ISO_SPECTRA_' + run_no + '.svg'
             py.savefig(sav_loc_iso, dpi=300)
 
 

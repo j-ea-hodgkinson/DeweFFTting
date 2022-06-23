@@ -4,33 +4,45 @@
 
 import os
 import numpy as np
-import pylab as py
 import matplotlib.pyplot as plt
 from scipy import fftpack
 import re
-import csv
-import sys
-import pandas as pd
 import pylab as py
-from skimage.filters import window
-from scipy import signal
-from scipy.ndimage.filters import uniform_filter1d
 import imageio
 
 # From the folder structure, select the type of pattern and the run number, edit these accordingly
-selected_type = 4  # 0'Cellular', 1'Fingering', 2'Holes', 3'Islands', 4'Labyrinthine', 5'Worm-like'
-selected_run = 1
+selected_type = 3  # 0'Cellular', 1'Fingering', 2'Holes', 3'Islands', 4'Labyrinthine', 5'Worm-like'
+selected_run = 2
 remove_liquid = 1  # Make it so the liquid isn't present
-save_movie = 1  # Save a gif of the coarsening, saving the subplots to a movie folder
-isolated = 0  # Don't use
+save_movie = 0  # Save a gif of the coarsening, saving the subplots to a movie folder
 image_size = 20  # Provide the image size in microns
 
-# Sets the thickness and sizes of elements in the plots
-line = 0.5
+
+paper = 0  # Used for plotting some PSDs on the same graph, for the thesis
+if selected_type == 1:
+    selected_frames = [420, 2920, 3820, 5500] # For use with paper
+    graph_in = 3
+elif selected_type == 3:
+    selected_frames = [140,240,1080,1500]
+    graph_in = 8
+elif selected_type == 5:
+    selected_frames = [140, 520, 720, 1000]
+    graph_in = 8
+
+height = 0
+
+# Fingering 2: 420, 2920,3820, 5500, 3:230
+# Islands 2: 140, 240, 1080, 1500, 8:230
+# Worm-like 2: 140, 520, 720, 1000, 8
+psd1D_paper = np.zeros((len(selected_frames),362)) # 362 is the number of values in the x array for the plot
+i=-1 # Counter for this cause I got lazy
+
+# Sets the thickness and sizes of elements in the plotsFFT_Frame_crop.py
+line = 0.7
 marker = 3
 
 # Find the chosen folder
-type = ['Cellular', 'Fingering', 'Holes', 'Islands', 'Labyrinthine', 'Worm-like']
+type = ['Cellular', 'Fingering', 'Holes', 'Islands', 'Labyrinthine', 'Worm like']
 type_dir = r'Frame Data/' + type[selected_type] + '/' + str(selected_run) + '/'
 
 # Define a function that converts PNGs to grayscale arrays
@@ -100,7 +112,7 @@ for index in steps_sort:
         image_gray[image_gray > 0.9] = 0  # Sets the liquid layer to 0
         image_gray = (image_gray > 0.5).astype(int)  # Sets the nanoparticle layer to 1
 
-    # Take the 2D fFourier transform of the image.
+    # Take the 2D Fourier transform of the image.
     F1 = fftpack.fft2(image_gray)
 
     # Now shift the quadrants around so that low spatial frequencies are in
@@ -112,6 +124,8 @@ for index in steps_sort:
 
     # Calculate the radially averaged 1D power spectrum
     psd1D = radial_profile2(psd2D)
+
+    height = np.append(height, np.max([psd1D[5:255]]))
 
         # # Apply windowing to the image before running the FFT code again
         # wimage_gray = image_gray * window('hann', image_gray.shape)
@@ -174,6 +188,16 @@ for index in steps_sort:
     py.savefig(fig_sav_loc, dpi=300)
     py.imsave(img_sav_loc, image_gray, dpi=300, cmap=py.cm.gray)
 
+    print(m)
+    if paper==1 and int(m) in selected_frames:
+        i+=1
+        print('Appending...')
+        psd1D_paper[i] = psd1D
+        # py.figure(3)
+
+
+
+
 
     # Make and save subplots for the gif
     if save_movie == 1:
@@ -191,6 +215,34 @@ for index in steps_sort:
         # py.ylabel('Power Spectrum')
         sub_sav_loc = r'res/frame/movie/' + type[selected_type] + '_' + str(selected_run) + '_SUB_l' + str(remove_liquid) + '_m' + m + '.png'
         py.savefig(sub_sav_loc, dpi=300)
+
+if paper == 1:
+    py.figure(3)
+    py.clf()
+    i = 0
+
+    #green triangle, red square, blue circle, purple diamond
+    markers_to_use = ['g^', 'rs', 'bo', 'md']
+    lines_to_use = ['g','r','b','m']
+
+    for m in selected_frames:
+        psd1D = psd1D_paper[i]
+        label = str(m) + ' Steps'
+        f=(image_size / 1024)
+        py.semilogy(f*horz[graph_in:255:2], psd1D[graph_in:255:2], lines_to_use[i], lw=line)
+        py.semilogy(f*horz[graph_in:255:2], psd1D[graph_in:255:2], markers_to_use[i], ms=1, label=label, lw=line)
+        i+=1
+
+    py.xlabel('Wavevector /pixels$^{-1}$')
+    py.ylabel('Intensity (a.u.)')
+    py.yticks([])
+    py.legend()
+    sub_sav_loc = r'res/frame/paper/' + type[selected_type] + '_' + str(selected_run) + '_SUB_l' + str(
+        remove_liquid) + '_m' + str(m) + '.png'
+    sub_sav_loc_eps = r'res/frame/paper/' + type[selected_type] + '_' + str(selected_run) + '_SUB_l' + str(
+        remove_liquid) + '_m' + str(m) + '.svg'
+    py.savefig(sub_sav_loc, dpi=300)
+    py.savefig(sub_sav_loc_eps, dpi=300, format='svg')
 
 # Makes the gif
 if save_movie == 1:
@@ -214,3 +266,24 @@ print('Done!')
 # print(str(1630-na_count) + ' of 1630 found peaks.')
 # dataframe.to_csv(r'res/output.csv')
 
+from scipy.optimize import curve_fit
+
+# Function to calculate the power-law with constants a and b
+def power_law(x, a, b):
+    return a*np.power(x, b)
+
+
+
+py.figure(4)
+py.plot(np.arange(60,1520,20), height[1:], 'rx')
+py.plot(np.arange(60,1520,20), power_law(np.arange(60,1520,20),1e9,0.25))
+py.show()
+
+# # Fit the dummy power-law data
+# pars, cov = curve_fit(f=power_law, xdata=np.arange(60,1020,20), ydata=height[1:], p0=[0, 0], bounds=(-np.inf, np.inf))
+# # Get the standard deviations of the parameters (square roots of the # diagonal of the covariance)
+# stdevs = np.sqrt(np.diag(cov))
+# # Calculate the residuals
+# # res = y_dummy - power_law(x_dummy, *pars)
+#
+# py.plot(np.arange(60,1020,20), power_law(np.arange(60,1020,20),pars))
